@@ -1,0 +1,30 @@
+<!DOCTYPE html><html lang="pt">
+<head>
+<meta charset="utf-8"/>
+<title>Biblioteca Are.na</title>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/css/jquery.dataTables.min.css"/>
+<style>body{font-family:system-ui;margin:2rem}</style>
+</head>
+<body>
+<h1>Biblioteca Are.na</h1>
+<table id="tbl" class="display" style="width:100%"></table>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+// URL bruto do CSV no mesmo repo (branch main):
+const csvURL = 'biblioteca.csv';
+
+Papa.parse(csvURL,{download:true,header:true,complete:(results)=>{
+  const cols = Object.keys(results.data[0]||{});
+  $('#tbl').DataTable({
+    data: results.data,
+    columns: cols.map(c=>({title:c,data:c})),
+    pageLength:25, responsive:true,
+    search:{smart:true},
+  });
+}});
+</script>
+</body></html>
