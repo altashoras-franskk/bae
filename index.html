@@ -1,30 +1,102 @@
-<!DOCTYPE html><html lang="pt">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
-<meta charset="utf-8"/>
-<title>Biblioteca Are.na</title>
-<link rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/css/jquery.dataTables.min.css"/>
-<style>body{font-family:system-ui;margin:2rem}</style>
+  <meta charset="utf-8" />
+  <title>Biblioteca Are.na – Index</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- DataTables + jQuery (CDN, sem build) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/css/jquery.dataTables.min.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/js/jquery.dataTables.min.js"></script>
+  <!-- PapaParse para ler CSV diretamente -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --bg: #fafafa;
+      --fg: #222;
+      --accent: #005eff;
+    }
+    body { margin: 2rem; background: var(--bg); color: var(--fg); }
+    h1 { margin-bottom: 1.5rem; font-size: 1.8rem; }
+    .dt-container .dataTables_filter input { width: 180px; }
+    table.dataTable tbody tr:hover { background: rgba(0, 94, 255, 0.05); }
+    /* Filtro dropdown */
+    select.column-filter { width: 100%; padding: 2px; border: 1px solid #ccc; border-radius: 4px; }
+  </style>
 </head>
 <body>
-<h1>Biblioteca Are.na</h1>
-<table id="tbl" class="display" style="width:100%"></table>
+  <h1>Biblioteca Are.na</h1>
+  <p>Busca, filtros por tipo e tema‑chave. CSV hospedado neste mesmo repositório → <code>biblioteca.csv</code>.</p>
 
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/datatables@1.13.8/media/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script>
-// URL bruto do CSV no mesmo repo (branch main):
-const csvURL = 'biblioteca.csv';
+  <table id="tbl" class="display" style="width:100%"></table>
 
-Papa.parse(csvURL,{download:true,header:true,complete:(results)=>{
-  const cols = Object.keys(results.data[0]||{});
-  $('#tbl').DataTable({
-    data: results.data,
-    columns: cols.map(c=>({title:c,data:c})),
-    pageLength:25, responsive:true,
-    search:{smart:true},
+  <script>
+  // Caminho relativo para o CSV neste repo (branch main)
+  const CSV_URL = 'biblioteca.csv';
+
+  // Função para criar um filtro dropdown em colunas específicas
+  function addColumnDropdownFilters(api, columnIdxArray) {
+    columnIdxArray.forEach(idx => {
+      const column = api.column(idx);
+      const header = $(column.header());
+      // Limpa header e injeta <select>
+      header.empty();
+      const select = $('<select class="column-filter"><option value="">(tudo)</option></select>')
+        .appendTo(header)
+        .on('change', function() {
+          const val = $.fn.dataTable.util.escapeRegex($(this).val());
+          column.search(val ? '^' + val + '$' : '', true, false).draw();
+        });
+
+      // Preenche opções únicas
+      column.data().unique().sort().each(d => {
+        if (d) select.append(`<option value="${d}">${d}</option>`);
+      });
+    });
+  }
+
+  // Carrega CSV e inicializa DataTable
+  Papa.parse(CSV_URL, {
+    download: true,
+    header: true,
+    complete: function(results) {
+      const data = results.data.filter(row => Object.keys(row).some(k => row[k] !== ''));
+      const columns = Object.keys(data[0]);
+      // Ajuste: tenta detectar hyperlink — renderiza como <a>
+      const dtCols = columns.map(col => ({
+        title: col,
+        data: col,
+        render: function(data, type) {
+          if(type === 'display' && /^https?:\/\//.test(data)) {
+            return `<a href="${data}" target="_blank" rel="noopener">link</a>`;
+          }
+          return data;
+        }
+      }));
+
+      const table = $('#tbl').DataTable({
+        data,
+        columns: dtCols,
+        pageLength: 25,
+        responsive: true,
+        order: [[0,'asc']],
+        initComplete: function() {
+          // Cria dropdowns nas colunas Tipo - clean (exata) e Tema-chave(s) - clean
+          const api = this.api();
+          const idxMap = {
+            'Tipo - clean': -1,
+            'Tema-chave(s) - clean': -1
+          };
+          api.columns().every(function(i) {
+            const title = this.header().textContent.trim();
+            if(idxMap.hasOwnProperty(title)) idxMap[title] = i;
+          });
+          addColumnDropdownFilters(api, Object.values(idxMap).filter(i => i >= 0));
+        }
+      });
+    }
   });
-}});
-</script>
-</body></html>
+  </script>
+</body>
+</html>
